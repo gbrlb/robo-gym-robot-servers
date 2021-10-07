@@ -1,0 +1,25 @@
+# agribot
+/clicked_point
+/clock
+/front_left_steering_controller/command
+/front_left_wheel_controller/command
+/front_right_steering_controller/command
+/front_right_wheel_controller/command
+/gazebo/link_states
+/gazebo/model_states
+/gazebo/parameter_descriptions
+/gazebo/parameter_updates
+/gazebo/performance_metrics
+/gazebo/set_link_state
+/gazebo/set_model_state
+/initialpose
+/joint_states
+/move_base_simple/goal
+/rear_left_steering_controller/command
+/rear_left_wheel_controller/command
+/rear_right_steering_controller/command
+/rear_right_wheel_controller/command
+/rosout
+/rosout_agg
+/tf
+/tf_static
