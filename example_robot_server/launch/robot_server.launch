@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <launch>
   <arg name="real_robot" default="false" doc="true: Real Robot, false: Simulated Robot"/>
-  <arg name="gui"         default="false"/>
+  <arg name="gui"         default="true"/>
   <arg name="world_name" default="empty.world"/>
   <arg name="server_port" default="50051"/>
 
@@ -10,32 +10,81 @@
 
     <!-- Here goes the launch file necessary to start the robot simulation -->
 
-    <!-- Robot Simulation -->
+    <!--1-Launch Robot Simulation -->
     <include file="$(find mir_gazebo)/launch/mir_empty_world.launch">
       <arg name="gui"         value="$(arg gui)"/>
       <arg name="world_name"  value="$(arg world_name)"/>
       <arg name="teleop"      value="false"/>
     </include>
 
-    <!-- Launch fake localization node -->
+    <!--2-Launch fake localization node -->
     <include file="$(find mir_gazebo)/launch/fake_localization.launch"></include>
 
-    <!-- Launch robot_pose publisher -->
-    <node name="robot_pose_publisher" pkg="example_robot_server" type="robot_pose_publisher.py" respawn="false" output="screen">
+    <!--3-Launch robot_pose publisher -->
+    <node name="robot_pose_publisher" 
+              pkg="example_robot_server" type="robot_pose_publisher.py"
+              respawn="false" output="screen">
     </node>
 
   <!-- END Robot Simulation Launch  -->
 
-  <!-- Launch Command Handler -->
+  <!--4-Launch Command Handler -->
   <!-- This is optional, depending on how you wish to control your robot -->
-  <node name="cmd_vel_command_handler" pkg="example_robot_server" type="cmd_vel_command_handler.py" respawn="false" output="screen">
-    <param name="action_cycle_rate" value="10"></param>
+  <node name="cmd_vel_command_handler" 
+        pkg="example_robot_server" type="cmd_vel_command_handler.py" 
+        respawn="false" output="screen">
+        <param name="action_cycle_rate" value="10"></param>
   </node>
 
-  <!--Launch gRPC server -->
+  <!--5-Launch gRPC server -->
   <node name="robot_server" pkg="example_robot_server" type="robot_server.py" respawn="false" output="screen">
     <param name="server_port" value="$(arg server_port)"></param>
     <param name="real_robot" value="$(arg real_robot)"></param>
   </node>
 
+  <!-- Launch RViz -->
+  <node if="$(arg gui)" name="$(anon rviz)" pkg="rviz" type="rviz" respawn="false"
+      args="-d $(find mir100_robot_server)/rviz/mir_sim_rl.rviz" output="screen">
+  </node>
+
 </launch>
+<!-- 
+/amcl_pose
+/b_scan
+/b_scan_rep117
+/base_pose_ground_truth
+/clock
+/cmd_vel
+/diagnostics
+/env_cmd_vel
+/f_scan
+/f_scan_rep117
+/gazebo/link_states
+/gazebo/model_states
+/gazebo/parameter_descriptions
+/gazebo/parameter_updates
+/gazebo/performance_metrics
+/gazebo/set_link_state
+/gazebo/set_model_state
+/imu_data
+/initialpose
+/joint_states
+/mir/joint_states
+/mir_collision
+/mobile_base_controller/parameter_descriptions
+/mobile_base_controller/parameter_updates
+/odom_comb
+/odometry/filtered
+/particlecloud
+/robot_pose
+/rosout
+/rosout_agg
+/scan
+/set_pose
+/tf
+/tf_static
+
+
+
+
+ -->
