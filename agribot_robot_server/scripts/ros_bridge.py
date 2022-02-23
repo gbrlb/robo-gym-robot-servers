@@ -25,11 +25,6 @@ class RosBridge:
         # Publisher to Command Handler
         self.env_cmd_vel_pub = rospy.Publisher('env_cmd_vel', Twist, queue_size=1)
         
-        # Subscriber to robot Odometry
-        # if self.real_robot:
-        #     rospy.Subscriber('odom', Odometry, self.callbackOdometry, queue_size=1)
-        # else:
-        #     rospy.Subscriber('odom_comb', Odometry, self.callbackOdometry, queue_size=1)
 
         # Robot State
         self.agribot_position = [0.0] * 2
