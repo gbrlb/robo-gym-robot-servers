@@ -16,11 +16,11 @@ class CmdEffCH:
 
         self.get_parameters()
         # Publisher effort command
-        self.cmd_eff_pub = rospy.Publisher('/steering_controller/command', Float64MultiArray, queue_size=10)
+        self.cmd_eff_pub = rospy.Publisher('/steering_effort_controller/command', Float64MultiArray, queue_size=2)
   
         # Subscriber to Eeffort Command coming from Environment
         # the suscriber must send commands at execution rate
-        rospy.Subscriber('env_cmd_eff', Float64MultiArray, self.callback_env_cmd_eff, queue_size=1)
+        rospy.Subscriber('/env_cmd_eff', Float64MultiArray, self.callback_env_cmd_eff, queue_size=2)
         self.empty_msg = Float64MultiArray()
         self.empty_msg.data = [0] * 4
         self.effort = []
@@ -33,7 +33,6 @@ class CmdEffCH:
         try:
             # Add to the Queue the next command to execute
             self.effort = data
-            print(data)
             self.queue.put(data)
             # self.time_call.print_time(name="  queue data OK")
         except:
@@ -47,6 +46,7 @@ class CmdEffCH:
             if self.queue.full():
                 data = self.queue.get()
                 for i in range(self.ratio):
+                    print(data)
                     self.cmd_eff_pub.publish(data)
                     rospy.sleep(self.control_period)
             else:
