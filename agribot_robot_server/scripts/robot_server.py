@@ -39,7 +39,7 @@ class RobotServerServicer(robot_server_pb2_grpc.RobotServerServicer):
 
     def SendActionGetState(self, request, context):
         try:
-            lin_vel, ang_vel = self.rosbridge.publish_env_cmd_vel(request.action[0], request.action[1])
+            torque = self.rosbridge.publish_env_eff_cmd(request.action)
             return self.rosbridge.get_state()
         except:
             rospy.logerr('Failed to send action and get state', exc_info=True)

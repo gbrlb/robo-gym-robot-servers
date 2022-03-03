@@ -34,19 +34,33 @@ class RosBridge:
 	                  'rear_right_steering_link': [-1, -1] }
 
         # Joint states
-        self.joint_names = [ 'front_left_steering_joint', 'front_right_steering_joint', 'rear_left_steering_joint', 'rear_right_steering_joint', 'front_left_wheel_joint', 'front_right_wheel_joint', 'rear_left_wheel_joint', 'rear_right_wheel_joint']
+        self.joint_names = ['front_left_steering_joint', 
+                            'front_right_steering_joint', 
+                            'rear_left_steering_joint', 
+                            'rear_right_steering_joint', 
+                            'front_left_wheel_joint', 
+                            'front_right_wheel_joint', 
+                            'rear_left_wheel_joint', 
+                            'rear_right_wheel_joint']
+
         self.joint_position = dict.fromkeys(self.joint_names, 0.0)
         self.joint_velocity = dict.fromkeys(self.joint_names, 0.0)
         self.joint_effort = dict.fromkeys(self.joint_names, 0.0)
-
+        self.joint_position_ref = dict.fromkeys(self.joint_names[:4], 0.0)
+        self.joint_velocity_ref = dict.fromkeys(self.joint_names[:4], 0.0)
+        self.joint_effort_ref = dict.fromkeys(self.joint_names[:4], 0.0)
+        # Ros control joint states
         rospy.Subscriber('joint_states', JointState, self._on_joint_states, queue_size=1)
-        self.joint_steering_pub = rospy.Publisher('joint_steering', JointState, queue_size=1)
+        rospy.Subscriber('joint_reference', JointState, self._on_joint_reference, queue_size=1)
 
-
+        self.env_cmd_pub = rospy.Publisher('env_cmd', JointState, queue_size=1)
+        self.env_cmd_msg = JointState()
+        self.env_cmd_msg.name = self.joint_names[:4]
+        self.env_cmd_msg.position = [0] * 4
+        self.env_cmd_msg.velocity = [0] * 4
+        self.env_cmd_msg.effort = [0] * 4
         # Publisher to Command Handler
         self.env_cmd_eff = rospy.Publisher('env_cmd_eff', Float64MultiArray, queue_size=1)
-        self.env_thetadot = rospy.Publisher('env_thetadot', Float64MultiArray, queue_size=1)
-        self.env_thetaref = rospy.Publisher('env_thetaref', Float64MultiArray, queue_size=1)
 
         self.effor_msg = Float64MultiArray()
         self.effor_msg.data = [0] * 4
@@ -98,10 +112,16 @@ class RosBridge:
         # Joint Positions and Joint Velocities
         joint_position = copy.deepcopy(self.joint_position)
         joint_velocity = copy.deepcopy(self.joint_velocity)
-        state += self._get_joint_ordered_value_list(joint_position)
-        state += self._get_joint_ordered_value_list(joint_velocity)
+        state += self._get_joint_ordered_value_list(joint_position,4)
+        state += self._get_joint_ordered_value_list(joint_velocity,8)
         state_dict.update(self._get_joint_states_dict(joint_position, joint_velocity))
-        print(state_dict)
+
+        joint_position_ref = copy.deepcopy(self.joint_position_ref)
+        joint_velocity_ref = copy.deepcopy(self.joint_velocity_ref)
+        state += self._get_joint_ordered_value_list(joint_position_ref,4)
+        state += self._get_joint_ordered_value_list(joint_velocity_ref,4)
+        state_dict.update(self._get_joint_states_ref_dict(joint_position_ref, joint_velocity_ref))
+
         self.get_state_event.set()
 
         # Create and fill State message
@@ -110,37 +130,53 @@ class RosBridge:
         return msg
 
     def set_state(self, state_msg):
-
+        state = list(state_msg.state)
+        state_dict = state_msg.state_dict
+        print(state_msg)
         self.reset.clear()
+        if len(state) == 8:
+            self.env_cmd_msg.position = state[:4]
+            self.env_cmd_msg.velocity = state[4:8]
+        else:
+            self.env_cmd_msg.position = [0]*4
+            self.env_cmd_msg.velocity = [0]*4
 
-        # self.env_thetaref.publish(thetaref_msg)
+        self.env_cmd_msg.effort = [0]*4
 
-        if not self.real_robot:
-            # Set Gazebo Robot Model state
-            for _, link in enumerate(state_msg.state_dict):
-                if link in self.links:
-                    print(link, state_msg.state_dict[link], self.links[link])
-                    self.set_link_state(link, state_msg.state_dict[link], self.links[link] )
+        self.env_cmd_pub.publish(self.env_cmd_msg)
+
+        # Set Gazebo Robot Model state
+        if 'reset_links' in state_dict:
+            if state_dict['reset_links']:
+                for link in state_dict:
+                    print(state_dict)
+                    if link in self.links:
+                        # print(link, state_msg.state_dict[link], self.links[link])
+                        self.set_link_state(link, state_msg.state_dict[link], self.links[link] )
               
         self.reset.set()
 
         # Sleep time set manually to allow gazebo to reposition model
-        rospy.sleep(0.2)
+        rospy.sleep(self.control_period)
 
         return 1
 
     def publish_env_eff_cmd(self, effort):
         self.effor_msg.data.clear()
-        # effort = np.array([])
-        # effort.reshape
-        self.effor_msg.data = effort
-        # print(msg)
+        self.effor_msg.data = list(effort)
+        print(f"self.effor_msg.data: {self.effor_msg.data}" )
         self.env_cmd_eff.publish(self.effor_msg)
         # Sleep time set manually to achieve approximately 10Hz rate
         # self.time_check.print_time("RB: send action")
-        rospy.sleep(self.control_period)
         # self.time_check.print_time(f"RB: sleep control period: {self.sleep_time}")
+        # rospy.sleep(self.control_period)
+
+        # self.env_cmd_msg.effort = list(effort)
+        # self.env_cmd_pub.publish(self.env_cmd_msg)
+        
+        rospy.sleep(self.control_period)
         return effort
+
 
     def get_robot_state(self):
         # method to get robot position from real mir
@@ -195,6 +231,7 @@ class RosBridge:
         try:
             set_model_state_client = rospy.ServiceProxy('/gazebo/set_model_state/', SetModelState)
             set_model_state_client(start_state)
+            rospy.sleep(self.control_period)
         except rospy.ServiceException as e:
             print("Service call failed:" + e)
 
@@ -216,13 +253,16 @@ class RosBridge:
                     self.joint_position[name] = msg.position[idx]
                     self.joint_velocity[name] = msg.velocity[idx]
                     self.joint_effort[name] = msg.effort[idx]
-        joint_steering_msg = JointState()
-        joint_steering_msg.name = self.joint_names
-        joint_steering_msg.position = self._get_joint_ordered_value_list(copy.deepcopy(self.joint_position))
-        self.joint_steering_pub.publish(joint_steering_msg)
 
-    def _get_joint_ordered_value_list(self, joint_values):    
-        return [joint_values[name] for name in self.joint_names]
+    def _on_joint_reference(self, msg):
+        if self.get_state_event.is_set():
+            for idx, name in enumerate(msg.name):
+                if name in self.joint_names:
+                    self.joint_position_ref[name] = msg.position[idx]
+                    self.joint_velocity_ref[name] = msg.velocity[idx]
+
+    def _get_joint_ordered_value_list(self, joint_values,n):    
+        return [joint_values[name] for name in self.joint_names[:n]]
 
     def _get_joint_states_dict(self, joint_position, joint_velocity):
         d = {}
@@ -230,10 +270,10 @@ class RosBridge:
         d['front_right_steering_joint_position'] = joint_position['front_right_steering_joint']
         d['rear_left_steering_joint_position'] = joint_position['rear_left_steering_joint']
         d['rear_right_steering_joint_position'] = joint_position['rear_right_steering_joint']
-        d['front_left_wheel_joint_position'] = joint_position['front_left_wheel_joint']
-        d['front_right_wheel_joint_position'] = joint_position['front_right_wheel_joint']
-        d['rear_left_wheel_joint_position'] = joint_position['rear_left_wheel_joint']
-        d['rear_right_wheel_joint_position'] = joint_position['rear_right_wheel_joint']
+        # d['front_left_wheel_joint_position'] = joint_position['front_left_wheel_joint']
+        # d['front_right_wheel_joint_position'] = joint_position['front_right_wheel_joint']
+        # d['rear_left_wheel_joint_position'] = joint_position['rear_left_wheel_joint']
+        # d['rear_right_wheel_joint_position'] = joint_position['rear_right_wheel_joint']
         d['front_left_steering_joint_velocity'] = joint_velocity['front_left_steering_joint']
         d['front_right_steering_joint_velocity'] = joint_velocity['front_right_steering_joint']
         d['rear_left_steering_joint_velocity'] = joint_velocity['rear_left_steering_joint']
@@ -242,4 +282,16 @@ class RosBridge:
         d['front_right_wheel_joint_velocity'] = joint_velocity['front_right_wheel_joint']
         d['rear_left_wheel_joint_velocity'] = joint_velocity['rear_left_wheel_joint']
         d['rear_right_wheel_joint_velocity'] = joint_velocity['rear_right_wheel_joint']
+        return d 
+
+    def _get_joint_states_ref_dict(self, joint_position_ref, joint_velocity_ref):
+        d = {}
+        d['front_left_steering_joint_position_ref'] = joint_position_ref['front_left_steering_joint']
+        d['front_right_steering_joint_position_ref'] = joint_position_ref['front_right_steering_joint']
+        d['rear_left_steering_joint_position_ref'] = joint_position_ref['rear_left_steering_joint']
+        d['rear_right_steering_joint_position_ref'] = joint_position_ref['rear_right_steering_joint']
+        d['front_left_steering_joint_velocity_ref'] = joint_velocity_ref['front_left_steering_joint']
+        d['front_right_steering_joint_velocity_ref'] = joint_velocity_ref['front_right_steering_joint']
+        d['rear_left_steering_joint_velocity_ref'] = joint_velocity_ref['rear_left_steering_joint']
+        d['rear_right_steering_joint_velocity_ref'] = joint_velocity_ref['rear_right_steering_joint']
         return d 
