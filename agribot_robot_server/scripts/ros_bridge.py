@@ -132,19 +132,42 @@ class RosBridge:
     def set_state(self, state_msg):
         state = list(state_msg.state)
         state_dict = state_msg.state_dict
-        print(state_msg)
-        self.reset.clear()
-        if len(state) == 8:
-            self.env_cmd_msg.position = state[:4]
-            self.env_cmd_msg.velocity = state[4:8]
-        else:
-            self.env_cmd_msg.position = [0]*4
-            self.env_cmd_msg.velocity = [0]*4
 
-        self.env_cmd_msg.effort = [0]*4
+        print(f"state:{state}")
+        print(f"state_dict:{state_dict}")
+
+        if all (posirion_ref in state_dict for posirion_ref in (        
+                            'front_left_steering_joint_position_ref',
+                            'front_right_steering_joint_position_ref',
+                            'rear_left_steering_joint_position_ref',
+                            'rear_right_steering_joint_position_ref')):
+            print("all true")
+            self.env_cmd_msg.position = [
+                state_dict['front_left_steering_joint_position_ref'],
+                state_dict['front_right_steering_joint_position_ref'],
+                state_dict['rear_left_steering_joint_position_ref'],
+                state_dict['rear_right_steering_joint_position_ref'],
+            ]
+        elif len(state) >= 4: self.env_cmd_msg.position = state[:4]
+        else: self.env_cmd_msg.position = [0]*4
+
+
+        if all (velocity_ref in state_dict for velocity_ref in (        
+                            'front_left_steering_joint_velocity_ref',
+                            'front_right_steering_joint_velocity_ref',
+                            'rear_left_steering_joint_velocity_ref',
+                            'rear_right_steering_joint_velocity_ref')):
+
+            self.env_cmd_msg.velocity = [
+                state_dict['front_left_steering_joint_velocity_ref'],
+                state_dict['front_right_steering_joint_velocity_ref'],
+                state_dict['rear_left_steering_joint_velocity_ref'],
+                state_dict['rear_right_steering_joint_velocity_ref'], 
+            ]
+        elif len(state) >= 8: self.env_cmd_msg.velocity = state[4:8]
+        else: self.env_cmd_msg.velocity = [0]*4
 
         self.env_cmd_pub.publish(self.env_cmd_msg)
-
         # Set Gazebo Robot Model state
         if 'reset_links' in state_dict:
             if state_dict['reset_links']:
@@ -261,7 +284,7 @@ class RosBridge:
                     self.joint_position_ref[name] = msg.position[idx]
                     self.joint_velocity_ref[name] = msg.velocity[idx]
 
-    def _get_joint_ordered_value_list(self, joint_values,n):    
+    def _get_joint_ordered_value_list(self, joint_values, n):    
         return [joint_values[name] for name in self.joint_names[:n]]
 
     def _get_joint_states_dict(self, joint_position, joint_velocity):

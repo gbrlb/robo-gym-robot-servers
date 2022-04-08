@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rospy
 import time
+import copy
 import numpy as np
 from std_msgs.msg import Float64
 from sensor_msgs.msg import JointState
@@ -14,9 +15,9 @@ class ReferenceState:
     def __init__(self):
         # self.time_check = Time_Check()
         rospy.init_node('reference_publisher')
-        self.reference_state_pub = rospy.Publisher('joint_reference', JointState, queue_size=10)
+        self.reference_state_pub = rospy.Publisher('joint_reference', JointState, queue_size=1)
 
-        rospy.Subscriber('env_cmd', JointState, self.callback_env_cmd, queue_size=1)
+        rospy.Subscriber('/env_cmd', JointState, self.callback_env_cmd, queue_size=2)
 
         self.reference = JointState()
         self.reference.name = [ 'front_left_steering_joint', 
@@ -26,6 +27,7 @@ class ReferenceState:
         self.reference.position = [0] * 4
         self.reference.velocity = [0] * 4
         self.reference.effort = [0] * 4
+        self.last_reference = JointState()
 
 
         ac_rate = rospy.get_param('/action_cycle_rate', 25)
@@ -41,17 +43,24 @@ class ReferenceState:
         self.reference.velocity = data.velocity
         self.reference.effort = data.effort
 
-    def reference_state_publisher(self):
-        while not rospy.is_shutdown():
-            try:
-                self.reference_state_pub.publish(self.reference)
-            except rospy.ServiceException as e:
-                print('Error:' + e)
-            self.rate.sleep()
+        if self.last_reference != self.reference:
+            # print(f"publish:{data.position}")
+            self.reference_state_pub.publish(self.reference)
+            self.last_reference = copy.deepcopy(self.reference)
+
+    # def reference_state_publisher(self):
+    #     while not rospy.is_shutdown():
+    #         try:
+    #             pass
+    #             # self.reference_state_pub.publish(self.reference)
+    #         except rospy.ServiceException as e:
+    #             print('Error:' + e)
+    #         self.rate.sleep()
 
 if __name__ == '__main__':
     try:
         ch = ReferenceState()
-        ch.reference_state_publisher()
+        rospy.spin()
+        # ch.reference_state_publisher()
     except rospy.ROSInterruptException:
         pass

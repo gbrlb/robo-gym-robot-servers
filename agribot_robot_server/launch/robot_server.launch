@@ -1,35 +1,58 @@
 <?xml version="1.0" ?>
 <launch>
+
+  <!-- Load parametes -->
+  <rosparam file="$(find agribot_description)/config/config.yaml" 
+            command="load"/>
+
+  <!-- arg  configurations -->
   <arg name="real_robot" default="false" doc="true: Real Robot, false: Simulated Robot"/>
-  <arg name="gui"         default="true"/>
   <arg name="world_name" default="empty.world"/>
   <arg name="server_port" default="50051"/>
 
+  <!-- gui configuration -->
+  <arg name="gui" default="true" />
+  <arg name="gazebo_gui" default="true"/>
+  <arg name="rviz_gui" default="true"/>
+  <arg name="rqt_gui" default="true"/>
+
+  <!-- RViz Configuration -->
+  <arg name="rqt_config_path" default = "$(find agribot_description)/config/rqt" />
+  <arg name="rqt_config_file" default="agribot.perspective" doc="rqt configuration file"/>
+  <arg name="rqt_config" value="$(arg rqt_config_path)/$(arg rqt_config_file)"/>
+
   <!--1-Launch Robot Simulation -->
-  <include file="$(find agribot_description)/launch/four_wheel_controller.launch">
-    <arg name="gui"            value="$(arg gui)"/>
-    <arg name="world_name"     value="$(arg world_name)"/>
-    <arg name="teleop"         value="false"/>
-    <arg name="fmu_simulation" value="true"/>
+  <include file="$(find agribot_description)/launch/agribot_controller.launch">
   </include>
 
   <!--2-Launch fake localization node -->
   <!-- <include file="$(find mir_gazebo)/launch/fake_localization.launch"></include> -->
 
   <!--3-Launch robot_pose publisher -->
-  <node name="robot_pose_publisher" pkg="agribot_robot_server" type="robot_pose_publisher.py" respawn="false" output="screen">
+  <node name="reference_publisher" pkg="agribot_robot_server" type="reference_publisher.py" respawn="false" output="screen">
   </node>
+
+  <node name="marker_publisher" pkg="agribot_robot_server" type="marker_publisher.py" respawn="false" output="screen">
+  </node>
+
+  <!-- <node name="robot_pose_publisher" pkg="agribot_robot_server" type="marker_publisher.py" respawn="false" output="screen">
+  </node> -->
 
   <!--4-Launch Command Handler -->
   <!-- This is optional, depending on how you wish to control your robot -->
-  <node name="cmd_vel_command_handler" pkg="agribot_robot_server" type="cmd_vel_command_handler.py" respawn="false" output="screen">
-    <param name="action_cycle_rate" value="10"></param>
+  <node name="cmd_eff_command_handler" pkg="agribot_robot_server" type="cmd_eff_command_handler.py" respawn="false" output="screen">
   </node>
 
   <!--5-Launch gRPC server -->
   <node name="robot_server" pkg="agribot_robot_server" type="robot_server.py" respawn="false" output="screen">
     <param name="server_port" value="$(arg server_port)"></param>
     <param name="real_robot" value="$(arg real_robot)"></param>
+  </node>
+
+  <node if="$(eval arg('gui') and arg('rqt_gui'))" 
+    name="pendulum_rqt" pkg="rqt_gui" type="rqt_gui" respawn="false"
+    output="screen"
+    args="--perspective-file  $(arg rqt_config)">
   </node>
 
 </launch>

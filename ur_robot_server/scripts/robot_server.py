@@ -2,7 +2,7 @@
 import grpc
 import rospy
 from concurrent import futures
-from ur_robot_server.ros_bridge import UrRosBridge
+from ros_bridge import UrRosBridge
 from robo_gym_server_modules.robot_server.grpc_msgs.python import robot_server_pb2, robot_server_pb2_grpc
 
 class RobotServerServicer(robot_server_pb2_grpc.RobotServerServicer):

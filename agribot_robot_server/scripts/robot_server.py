@@ -3,9 +3,10 @@
 import grpc
 import rospy
 from concurrent import futures
-from ros_bridge import RosBridge # for test run from vscode
+# from ros_bridge import RosBridge # for test run from vscode
 # from teset run from roslaunch
-# from agribot_robot_server.ros_bridge import RosBridge
+# from src.agribot_robot_server.ros_bridge import RosBridge
+from agribot_robot_server.ros_bridge import RosBridge
 
 from robo_gym_server_modules.robot_server.grpc_msgs.python import robot_server_pb2, robot_server_pb2_grpc
 

@@ -45,8 +45,8 @@ class CmdEffCH:
         while not rospy.is_shutdown():
             if self.queue.full():
                 data = self.queue.get()
-                for i in range(self.ratio):
-                    print(data)
+                for _ in range(self.ratio):
+                    # print(f"publish:\n{data.data}")
                     self.cmd_eff_pub.publish(data)
                     rospy.sleep(self.control_period)
             else:
@@ -69,7 +69,7 @@ class CmdEffCH:
         self.control_period = rospy.Duration.from_sec(sleep_time)
 
         # iinit finish msg
-        rospy.loginfo(f"============Command Handller============")
+        rospy.loginfo(f"============Init Command Handller============")
         rospy.loginfo(f"ac_rate: {action_cicle_rate}, rc_rate: {robot_cicle_rate}, ratio: {self.ratio}")
         rospy.loginfo(f"ac time: {action_cicle_time}, rc_time: {robot_cicle_time}")
         rospy.loginfo(f"sleep_time: {sleep_time}, action_generation_time {action_generation_time}")
